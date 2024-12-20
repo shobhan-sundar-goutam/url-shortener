@@ -16,7 +16,7 @@ This is a URL shortener application built using Node.js, Express, TypeScript, an
 Ensure you have the following installed on your local machine:
 
 - [Node.js](https://nodejs.org/) (v14+ recommended)
-- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [npm](https://www.npmjs.com/)
 - [TypeScript](https://www.typescriptlang.org/) (if not globally installed, it will be installed via dependencies)
 
 ---
@@ -25,9 +25,36 @@ Ensure you have the following installed on your local machine:
 
 Follow these steps to set up and run the application locally:
 
-### 1. Clone the Repository
+Fork and clone the [repo](https://github.com/shobhan-sundar-goutam/url-shortener)
+
+### 1. Get into the folder
 
 ```bash
-git clone <repository-url>
-cd <repository-name>
+cd node-backend
 ```
+
+### 2. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Build the Project
+
+Compile the TypeScript code to JavaScript using the TypeScript compiler:
+
+```bash
+npm run build
+```
+
+This will create a dist folder containing the compiled code.
+
+### 3. Start the Server
+
+Run the compiled code using Node.js:
+
+```bash
+npm start
+```
+
+The server will start on http://localhost:4000.
