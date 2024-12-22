@@ -1,7 +1,7 @@
 import express, { json, urlencoded } from 'express';
 import DB from './database';
 
-const app = express();
+export const app = express();
 
 app.use(json());
 app.use(urlencoded({ extended: true }));
@@ -62,7 +62,7 @@ app.get('/redirect', (req, res) => {
       (err: Error | null, rows: [{ original_url: string }] | undefined) => {
         if (err) throw err;
         if (!rows || !rows.length) {
-          res.status(201).json({
+          res.status(200).json({
             success: true,
             message: 'No url found',
             data: null,
@@ -86,7 +86,6 @@ app.get('/all', (req, res) => {
   try {
     DB.all(sql, [], (err, rows) => {
       if (err) throw err;
-      console.log(61, rows);
       res.status(201).json({
         success: true,
         message: 'urls retrieved sucessfully',
@@ -101,7 +100,45 @@ app.get('/all', (req, res) => {
   }
 });
 
-function generateRandomShortCode() {
+app.delete('/redirect', (req, res) => {
+  const { code } = req.query;
+  if (!code) {
+    res.status(404).json({
+      success: false,
+      message: 'Please provide a valid code',
+      data: null,
+    });
+    return;
+  }
+
+  const sql = `DELETE FROM shortened_urls WHERE short_code = ?`;
+
+  try {
+    DB.run(sql, [code], function (err) {
+      if (err) throw err;
+      if (this.changes === 1) {
+        res.status(200).json({
+          success: true,
+          message: `short code ${code} deleted sucessfully`,
+          data: null,
+        });
+      } else {
+        res.status(200).json({
+          success: true,
+          message: `Nothing found of this short code - ${code}`,
+          data: null,
+        });
+      }
+    });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
+  }
+});
+
+export function generateRandomShortCode() {
   const chars =
     '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
   let shortCode = '';

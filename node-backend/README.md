@@ -58,3 +58,13 @@ npm start
 ```
 
 The server will start on http://localhost:4000.
+
+### 4. Running Tests
+
+To execute the test suite, use the following command:
+
+```bash
+npm run test
+```
+
+**Note:** Ensure that only the test suite or the server is running at any given time, not both simultaneously, to avoid conflicts.
