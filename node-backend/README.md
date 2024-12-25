@@ -83,6 +83,7 @@ This is the API for shortening a given URL and generating a unique short code.
 | 200              | 29340    | 45519.2  | 47968.3  | 48908.14 |
 
 ### Latency Graph
+![image](https://github.com/user-attachments/assets/59aa23ce-19af-4602-abe1-450fba7397a2)
 
 ## Observations on /redirect API
 
@@ -98,5 +99,6 @@ This is the API for redirecting to the original URL using the short code.
 | 200              | 6329.5   | 7311.7   | 7530.15  | 7644.99  |
 
 ### Latency Graph
+![image](https://github.com/user-attachments/assets/89b9d510-bb2a-4a48-91b9-25f637f84a56)
 
 **Note:** Both /shorten and /redirect were giving request timeout errors at 500 concurrent requests
