@@ -13,7 +13,7 @@ This is a URL shortener application. It allows users to shorten URLs, redirect u
 
 ## How to Run
 
-**Navigate to the `node-backend` folder:**
+**Navigate to the [node-backend](https://github.com/shobhan-sundar-goutam/url-shortener/tree/master/node-backend) folder:**
 
 ```bash
 cd node-backend

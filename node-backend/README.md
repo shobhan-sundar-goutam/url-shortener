@@ -68,3 +68,35 @@ npm run test
 ```
 
 **Note:** Ensure that only the test suite or the server is running at any given time, not both simultaneously, to avoid conflicts.
+
+## Observations on /shorten API
+
+This is the API for shortening a given URL and generating a unique short code.
+
+### Concurrent Calls Performance Metrics
+
+| Concurrent Calls | p50 (ms) | p90 (ms) | p95 (ms) | p99 (ms) |
+| ---------------- | -------- | -------- | -------- | -------- |
+| 10               | 1230.5   | 1251.5   | 1294.25  | 1328.45  |
+| 50               | 4509.5   | 5834.4   | 6021.6   | 6173.12  |
+| 100              | 5668     | 8448.1   | 9013.4   | 9041.47  |
+| 200              | 29340    | 45519.2  | 47968.3  | 48908.14 |
+
+### Latency Graph
+
+## Observations on /redirect API
+
+This is the API for redirecting to the original URL using the short code.
+
+### Concurrent Calls Performance Metrics
+
+| Concurrent Calls | p50 (ms) | p90 (ms) | p95 (ms) | p99 (ms) |
+| ---------------- | -------- | -------- | -------- | -------- |
+| 10               | 1902     | 1933.9   | 1937.95  | 1941.19  |
+| 50               | 3082     | 3871.4   | 3934.8   | 4065.51  |
+| 100              | 3941     | 4694.1   | 4795.25  | 4816.54  |
+| 200              | 6329.5   | 7311.7   | 7530.15  | 7644.99  |
+
+### Latency Graph
+
+**Note:** Both /shorten and /redirect were giving request timeout errors at 500 concurrent requests
