@@ -9,8 +9,10 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:../url_shortener.db"
+  // provider = "sqlite"
+  // url      = "file:../url_shortener.db"
+  provider  = "postgresql"
+  url  	    = env("DATABASE_URL")
 }
 
 model shortened_urls {
