@@ -100,6 +100,26 @@ app.get('/all', (req, res) => {
   }
 });
 
+app.delete('/all', (req, res) => {
+  const sql = `DELETE FROM shortened_urls`;
+
+  try {
+    DB.run(sql, [], function (err) {
+      if (err) throw err;
+      res.status(200).json({
+        success: true,
+        message: `All data deleted sucessfully`,
+        data: null,
+      });
+    });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
+  }
+});
+
 app.delete('/redirect', (req, res) => {
   const { code } = req.query;
   if (!code) {
