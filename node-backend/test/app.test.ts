@@ -21,6 +21,17 @@ describe('app', function () {
       expect(response.body.data).to.have.property('shortCode');
     });
 
+    it('Should return same short code if same url is passed', async function () {
+      const response = await chai.request(app).post('/shorten').send({
+        url: originalUrl,
+      });
+
+      expect(response).to.have.status(200);
+      expect(response.body.success).to.equal(true);
+      expect(response.body.message).to.equal('Url already present');
+      expect(response.body.data.shortCode).to.equal(shortCode);
+    });
+
     it('Should redirect to the original URL when a valid short code is provided', async function () {
       const response = await chai
         .request(app)
@@ -29,6 +40,31 @@ describe('app', function () {
 
       expect(response).to.have.status(200);
       expect(response.redirects).to.include(originalUrl);
+    });
+
+    it('Should return 404 when a short code does not exist', async function () {
+      const response = await chai
+        .request(app)
+        .get(`/redirect`)
+        .query({ code: 'random' });
+
+      expect(response).to.have.status(404);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal('No url found');
+    });
+
+    it('Should return 200 when a short code is deleted successfully', async function () {
+      const response = await chai
+        .request(app)
+        .delete(`/redirect`)
+        .query({ code: shortCode });
+
+      expect(response).to.have.status(200);
+      expect(response.body.success).to.equal(true);
+      expect(response.body.message).to.equal(
+        `short code ${shortCode} deleted sucessfully`
+      );
+      expect(response.body.data.original_url).to.equal(originalUrl);
     });
   });
 });

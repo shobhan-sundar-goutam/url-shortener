@@ -1,3 +1,5 @@
+// Not getting used anymore as the project switched to Prisma ORM
+
 import sqlite3 from 'sqlite3';
 
 const sqlite = sqlite3.verbose();
