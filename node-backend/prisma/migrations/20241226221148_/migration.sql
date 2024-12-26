@@ -1,9 +1,11 @@
 -- CreateTable
 CREATE TABLE "shortened_urls" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "original_url" TEXT NOT NULL,
     "short_code" TEXT NOT NULL,
-    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "shortened_urls_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
