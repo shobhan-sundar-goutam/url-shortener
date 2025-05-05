@@ -16,8 +16,10 @@ datasource db {
 }
 
 model shortened_urls {
-  id           Int      @id @default(autoincrement())
-  original_url String
-  short_code   String   @unique
-  created_at   DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  original_url      String
+  short_code        String   @unique
+  created_at        DateTime @default(now())
+  access_count      Int      @default(0) 
+  last_accessed_at  DateTime?
 }

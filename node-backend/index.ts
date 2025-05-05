@@ -81,6 +81,15 @@ app.get('/redirect', async (req, res) => {
       });
       return;
     }
+
+    await prisma.shortened_urls.update({
+      where: { id: url.id },
+      data: {
+        access_count: { increment: 1 },
+        last_accessed_at: new Date(),
+      },
+    });
+
     res.redirect(url.original_url);
   } catch (error) {
     console.log(error);
