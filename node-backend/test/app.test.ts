@@ -21,6 +21,17 @@ describe('app', function () {
       expect(response.body.data).to.have.property('shortCode');
     });
 
+    it('Should return 400 when a valid url is not provided to create short code', async function () {
+      const response = await chai.request(app).post('/shorten').send({
+        url: '',
+      });
+
+      expect(response).to.have.status(400);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal('Please provide a valid url');
+      expect(response.body.data).to.equal(null);
+    });
+
     it('Should return same short code if same url is passed', async function () {
       const response = await chai.request(app).post('/shorten').send({
         url: originalUrl,

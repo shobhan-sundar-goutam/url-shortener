@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 app.post('/shorten', async (req, res) => {
   const { url } = req.body;
   if (!url) {
-    res.status(404).json({
+    res.status(400).json({
       success: false,
       message: 'Please provide a valid url',
       data: null,
