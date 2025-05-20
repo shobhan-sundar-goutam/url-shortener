@@ -23,19 +23,6 @@ app.post('/shorten', async (req, res) => {
   }
 
   try {
-    const urlAlreadyExists = await prisma.shortened_urls.findFirst({
-      where: { original_url: url },
-    });
-
-    if (urlAlreadyExists) {
-      res.status(200).json({
-        success: true,
-        message: 'Url already present',
-        data: { shortCode: urlAlreadyExists.short_code },
-      });
-      return;
-    }
-
     const shortCode = generateRandomShortCode();
 
     const newUrl = await prisma.shortened_urls.create({

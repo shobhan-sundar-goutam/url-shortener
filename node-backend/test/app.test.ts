@@ -32,17 +32,6 @@ describe('app', function () {
       expect(response.body.data).to.equal(null);
     });
 
-    it('Should return same short code if same url is passed', async function () {
-      const response = await chai.request(app).post('/shorten').send({
-        url: originalUrl,
-      });
-
-      expect(response).to.have.status(200);
-      expect(response.body.success).to.equal(true);
-      expect(response.body.message).to.equal('Url already present');
-      expect(response.body.data.shortCode).to.equal(shortCode);
-    });
-
     it('Should redirect to the original URL when a valid short code is provided', async function () {
       const response = await chai
         .request(app)
