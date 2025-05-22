@@ -125,6 +125,28 @@ describe('app', function () {
       expect(response.body.message).to.equal('No url found');
     });
 
+    it('Should not redirect if the url has expired', async function () {
+      const url = await chai
+        .request(app)
+        .post('/shorten')
+        .set('x-api-key', apiKey)
+        .send({ url: 'https://expired-url.com', expiryDate: '20-05-2025' });
+
+      console.log('first', url);
+      const expiredShortCode = url.body.data.shortCode;
+      createdShortCodes.push(expiredShortCode);
+
+      const response = await chai
+        .request(app)
+        .get(`/redirect`)
+        .set('x-api-key', apiKey)
+        .query({ code: expiredShortCode });
+
+      expect(response).to.have.status(410);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal('Url has expired');
+    });
+
     it('Short code cannnot be deleted when no url is found for the given short code', async function () {
       const randomShortCode = 'randomShortCode';
 

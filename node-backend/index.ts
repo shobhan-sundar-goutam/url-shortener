@@ -1,3 +1,4 @@
+import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
 import prisma from './prisma';
 
@@ -11,7 +12,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/shorten', async (req, res) => {
-  const { url } = req.body;
+  const { url, expiryDate } = req.body;
   if (!url) {
     res.status(400).json({
       success: false,
@@ -42,6 +43,23 @@ app.post('/shorten', async (req, res) => {
       return;
     }
 
+    let expriryDateObj: Date | undefined = undefined;
+
+    if (expiryDate) {
+      const parsedDate = parse(expiryDate, 'dd-MM-yyyy', new Date());
+      if (!isValid(parsedDate)) {
+        res.status(400).json({
+          success: false,
+          message:
+            'Invalid expriy date format. Please use dd-MM-yyyy format (e.g. 22-05-2025)',
+          data: null,
+        });
+        return;
+      }
+
+      expriryDateObj = parsedDate;
+    }
+
     const shortCode = generateRandomShortCode();
 
     const newUrl = await prisma.shortened_urls.create({
@@ -49,6 +67,7 @@ app.post('/shorten', async (req, res) => {
         original_url: url,
         short_code: shortCode,
         user_id: user.id,
+        expiry_date: expriryDateObj,
       },
     });
 
@@ -85,6 +104,15 @@ app.get('/redirect', async (req, res) => {
       res.status(404).json({
         success: false,
         message: 'No url found',
+        data: null,
+      });
+      return;
+    }
+
+    if (url.expiry_date && url.expiry_date < new Date()) {
+      res.status(410).json({
+        success: false,
+        message: 'Url has expired',
         data: null,
       });
       return;

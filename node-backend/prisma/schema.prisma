@@ -22,6 +22,7 @@ model shortened_urls {
   user_id          Int
   created_at       DateTime  @default(now())
   access_count     Int       @default(0)
+  expiry_date      DateTime?
   last_accessed_at DateTime?
   deleted_at       DateTime?
   user             users     @relation(fields: [user_id], references: [id])
