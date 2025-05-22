@@ -11,15 +11,27 @@ generator client {
 datasource db {
   // provider = "sqlite"
   // url      = "file:../url_shortener.db"
-  provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model shortened_urls {
-  id                Int      @id @default(autoincrement())
-  original_url      String
-  short_code        String   @unique
-  created_at        DateTime @default(now())
-  access_count      Int      @default(0) 
-  last_accessed_at  DateTime?
+  id               Int       @id @default(autoincrement())
+  original_url     String
+  short_code       String    @unique
+  user_id          Int
+  created_at       DateTime  @default(now())
+  access_count     Int       @default(0)
+  last_accessed_at DateTime?
+  deleted_at       DateTime?
+  user             users     @relation(fields: [user_id], references: [id])
+}
+
+model users {
+  id             Int              @id @default(autoincrement())
+  email          String           @unique
+  name           String?
+  api_key        String           @unique
+  created_at     DateTime         @default(now())
+  shortened_urls shortened_urls[]
 }

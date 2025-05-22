@@ -6,7 +6,8 @@
     "test": "mocha --timeout 50000 --import=tsx test/**.test.ts",
     "start": "node ./dist/index.js",
     "build": "npx tsc -b",
-    "server": "npx tsc -b && nodemon ./dist/index.js"
+    "server": "npx tsc -b && nodemon ./dist/index.js",
+    "migrate": "npx prisma migrate dev"
   },
   "keywords": [],
   "author": "",

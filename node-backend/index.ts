@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import express, { json, urlencoded } from 'express';
 import prisma from './prisma';
 
@@ -22,15 +21,37 @@ app.post('/shorten', async (req, res) => {
     return;
   }
 
+  const apiKey = req.headers['x-api-key'] as string;
+  if (!apiKey) {
+    res.status(401).json({
+      success: false,
+      message: 'Missing API key',
+      data: null,
+    });
+    return;
+  }
+
   try {
+    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
+    if (!user) {
+      res.status(403).json({
+        success: false,
+        message: 'Invalid API key',
+        data: null,
+      });
+      return;
+    }
+
     const shortCode = generateRandomShortCode();
 
     const newUrl = await prisma.shortened_urls.create({
       data: {
         original_url: url,
         short_code: shortCode,
+        user_id: user.id,
       },
     });
+
     res.status(201).json({
       success: true,
       message: 'Short Url created successfully',
@@ -86,7 +107,7 @@ app.get('/redirect', async (req, res) => {
   }
 });
 
-app.delete('/redirect', async (req, res) => {
+app.patch('/redirect', async (req, res) => {
   const { code } = req.query;
   if (!code) {
     res.status(404).json({
@@ -98,30 +119,54 @@ app.delete('/redirect', async (req, res) => {
   }
 
   try {
-    const deletedUrl = await prisma.shortened_urls.delete({
+    const apiKey = req.headers['x-api-key'] as string;
+    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
+    if (!user) {
+      res.status(403).json({
+        success: false,
+        message: 'Invalid API key',
+        data: null,
+      });
+      return;
+    }
+
+    const url = await prisma.shortened_urls.findUnique({
       where: { short_code: String(code) },
     });
-    res.status(200).json({
-      success: true,
-      message: `short code ${code} deleted sucessfully`,
-      data: deletedUrl,
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
+
+    if (!url) {
       res.status(404).json({
-        success: true,
+        success: false,
         message: `No URL found for the short code ${code}`,
         data: null,
       });
-    } else {
-      console.log(error);
-      res
-        .status(500)
-        .json({ success: false, message: 'Something went wrong', data: null });
+      return;
     }
+
+    if (url.user_id !== user.id) {
+      res.status(403).json({
+        success: false,
+        message: `You do not own this short code`,
+        data: null,
+      });
+      return;
+    }
+
+    await prisma.shortened_urls.update({
+      where: { short_code: String(code) },
+      data: { deleted_at: new Date() },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `short code ${code} deleted sucessfully`,
+      data: null,
+    });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
   }
 });
 
