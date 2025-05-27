@@ -12,7 +12,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/shorten', async (req, res) => {
-  const { url, expiryDate } = req.body;
+  const { url, expiryDate, code } = req.body;
   if (!url) {
     res.status(400).json({
       success: false,
@@ -60,7 +60,28 @@ app.post('/shorten', async (req, res) => {
       expriryDateObj = parsedDate;
     }
 
-    const shortCode = generateRandomShortCode();
+    let shortCode;
+
+    if (code) {
+      shortCode = code;
+
+      const url = await prisma.shortened_urls.findUnique({
+        where: {
+          short_code: shortCode,
+        },
+      });
+
+      if (url) {
+        res.status(400).json({
+          success: false,
+          message: `${shortCode} already exists. Please try again with another code.`,
+          data: null,
+        });
+        return;
+      }
+    } else {
+      shortCode = generateRandomShortCode();
+    }
 
     const newUrl = await prisma.shortened_urls.create({
       data: {

@@ -102,6 +102,26 @@ describe('app', function () {
       expect(response.body.data).to.equal(null);
     });
 
+    it.only('Short code cannot be created if the provided custom short code already exists', async function () {
+      const customShortCode = 'f7MlP';
+
+      const response = await chai
+        .request(app)
+        .post('/shorten')
+        .set('x-api-key', apiKey)
+        .send({
+          url: originalUrl,
+          code: customShortCode,
+        });
+
+      expect(response).to.have.status(400);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal(
+        `${customShortCode} already exists. Please try again with another code.`
+      );
+      expect(response.body.data).to.equal(null);
+    });
+
     it('Should redirect to the original URL when a valid short code is provided', async function () {
       const response = await chai
         .request(app)
@@ -132,7 +152,6 @@ describe('app', function () {
         .set('x-api-key', apiKey)
         .send({ url: 'https://expired-url.com', expiryDate: '20-05-2025' });
 
-      console.log('first', url);
       const expiredShortCode = url.body.data.shortCode;
       createdShortCodes.push(expiredShortCode);
 
