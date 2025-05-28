@@ -32,6 +32,7 @@ model users {
   id             Int              @id @default(autoincrement())
   email          String           @unique
   name           String?
+  tier           String           @default("hobby")
   api_key        String           @unique
   created_at     DateTime         @default(now())
   shortened_urls shortened_urls[]

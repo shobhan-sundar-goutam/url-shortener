@@ -105,6 +105,92 @@ app.post('/shorten', async (req, res) => {
   }
 });
 
+app.post('/shorten/batch', async (req, res) => {
+  const { urls } = req.body;
+
+  if (!Array.isArray(urls) || urls.length === 0) {
+    res.status(400).json({
+      success: false,
+      message: 'Urls must be a non-empty array.',
+      data: null,
+    });
+    return;
+  }
+
+  const apiKey = req.headers['x-api-key'] as string;
+  if (!apiKey) {
+    res.status(401).json({
+      success: false,
+      message: 'Missing API key',
+      data: null,
+    });
+    return;
+  }
+
+  const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
+  if (!user) {
+    res.status(403).json({
+      success: false,
+      message: 'Invalid API key',
+      data: null,
+    });
+    return;
+  }
+
+  if (user.tier !== 'enterprise') {
+    res.status(403).json({
+      success: false,
+      message: 'Bulk URL shortening is only available for enterprise users.',
+      data: null,
+    });
+    return;
+  }
+
+  const results = await Promise.all(
+    urls.map(async (url) => {
+      if (!url) {
+        return {
+          url,
+          success: false,
+          message: 'URL is missing',
+        };
+      }
+
+      const shortCode = generateRandomShortCode();
+
+      try {
+        const newUrl = await prisma.shortened_urls.create({
+          data: {
+            original_url: url,
+            short_code: shortCode,
+            user_id: user.id,
+          },
+        });
+
+        return {
+          url,
+          shortCode: newUrl.short_code,
+          success: true,
+          message: 'Short Url created successfully',
+        };
+      } catch (err) {
+        console.error(err);
+        return {
+          url,
+          success: false,
+          message: 'Database error',
+        };
+      }
+    })
+  );
+
+  res.status(207).json({
+    success: true,
+    message: 'Batch processed',
+    data: results,
+  });
+});
+
 app.get('/redirect', async (req, res) => {
   const { code } = req.query;
   if (!code) {

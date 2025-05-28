@@ -5,25 +5,45 @@ import prisma from '../prisma';
 
 const chai = use(chaiHttp);
 
+type BatchUrlResponseType = {
+  url: string;
+  shortCode?: string;
+  success: boolean;
+  message: string;
+};
+
+type User = { email: string; apiKey: string };
+
 describe('app', function () {
   const originalUrl = 'https://example.com/';
   let shortCode: string;
   let apiKey: string;
-  let testUserId: number;
-  let otherUserId: number;
+  let testUser: User;
+  let otherUser: User;
+  let hobbyUser: User;
   const createdShortCodes: string[] = [];
 
   before(async function () {
-    const testUser = await prisma.users.create({
-      data: {
-        email: 'testuser@example.com',
-        name: 'Test User',
-        api_key: 'test-api-key-123',
-      },
+    testUser = { email: 'testuser@example.com', apiKey: 'test-api-key-123' };
+    hobbyUser = { email: 'hobby@example.com', apiKey: 'hobby-key' };
+
+    await prisma.users.createMany({
+      data: [
+        {
+          email: testUser.email,
+          name: 'Test User',
+          api_key: testUser.apiKey,
+          tier: 'enterprise',
+        },
+        {
+          email: hobbyUser.email,
+          api_key: hobbyUser.apiKey,
+          tier: 'hobby',
+        },
+      ],
     });
 
-    testUserId = testUser.id;
-    apiKey = testUser.api_key;
+    apiKey = testUser.apiKey;
   });
 
   after(async function () {
@@ -37,7 +57,11 @@ describe('app', function () {
 
     await prisma.users.deleteMany({
       where: {
-        id: { in: [testUserId, otherUserId].filter(Boolean) },
+        email: {
+          in: [testUser.email, otherUser.email, hobbyUser.email].filter(
+            Boolean
+          ),
+        },
       },
     });
   });
@@ -102,7 +126,7 @@ describe('app', function () {
       expect(response.body.data).to.equal(null);
     });
 
-    it.only('Short code cannot be created if the provided custom short code already exists', async function () {
+    it('Short code cannot be created if the provided custom short code already exists', async function () {
       const customShortCode = 'f7MlP';
 
       const response = await chai
@@ -120,6 +144,71 @@ describe('app', function () {
         `${customShortCode} already exists. Please try again with another code.`
       );
       expect(response.body.data).to.equal(null);
+    });
+
+    it('Should create short URLs for valid input in batch', async function () {
+      const urls = ['https://example.com/page1', 'https://example.com/page2'];
+
+      const res = await chai
+        .request(app)
+        .post('/shorten/batch')
+        .set('x-api-key', apiKey)
+        .send({ urls });
+
+      expect(res).to.have.status(207);
+      expect(res.body.success).to.equal(true);
+      expect(res.body.data.length).to.equal(2);
+      res.body.data.forEach((item: BatchUrlResponseType) => {
+        createdShortCodes.push(item.shortCode!);
+        expect(item.success).to.equal(true);
+        expect(item.message).to.match(/successfully/i);
+      });
+    });
+
+    it('should handle invalid URLs gracefully in batch', async () => {
+      const urls = ['https://valid.com', '', null];
+
+      const res = await chai
+        .request(app)
+        .post('/shorten/batch')
+        .set('x-api-key', apiKey)
+        .send({ urls });
+
+      expect(res).to.have.status(207);
+      expect(res.body.success).to.equal(true);
+      expect(res.body.data.length).to.equal(3);
+
+      const failed = res.body.data.filter(
+        (r: BatchUrlResponseType) => !r.success
+      );
+      const passed = res.body.data.filter(
+        (r: BatchUrlResponseType) => r.success
+      );
+
+      passed.forEach((item: BatchUrlResponseType) =>
+        createdShortCodes.push(item.shortCode!)
+      );
+
+      expect(failed.length).to.equal(2);
+      expect(passed.length).to.equal(1);
+
+      failed.forEach((item: BatchUrlResponseType) => {
+        expect(item.message).to.match(/missing/i);
+      });
+    });
+
+    it('Should deny access to hobby tier users to create short urls in batch', async () => {
+      const res = await chai
+        .request(app)
+        .post('/shorten/batch')
+        .set('x-api-key', 'hobby-key')
+        .send({ urls: ['https://example.com'] });
+
+      expect(res).to.have.status(403);
+      expect(res.body.success).to.equal(false);
+      expect(res.body.message).to.equal(
+        'Bulk URL shortening is only available for enterprise users.'
+      );
     });
 
     it('Should redirect to the original URL when a valid short code is provided', async function () {
@@ -183,18 +272,21 @@ describe('app', function () {
     });
 
     it('Short code cannnot be deleted when user does not own the given short code', async function () {
-      const otherUser = await prisma.users.create({
+      otherUser = {
+        email: 'another@example.com',
+        apiKey: 'another-api-key-456',
+      };
+      await prisma.users.create({
         data: {
-          email: 'another@example.com',
-          api_key: 'another-api-key-456',
+          email: otherUser.email,
+          api_key: otherUser.apiKey,
         },
       });
-      otherUserId = otherUser.id;
 
       const response = await chai
         .request(app)
         .patch(`/redirect`)
-        .set('x-api-key', otherUser.api_key)
+        .set('x-api-key', otherUser.apiKey)
         .query({ code: shortCode });
 
       expect(response).to.have.status(403);
