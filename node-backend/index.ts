@@ -337,6 +337,84 @@ app.delete('/all', async (req, res) => {
   }
 });
 
+app.patch('/shorten/:code', async (req, res) => {
+  const { code } = req.params;
+  const { expiryDate } = req.body;
+
+  const apiKey = req.headers['x-api-key'] as string;
+  if (!apiKey) {
+    res.status(401).json({
+      success: false,
+      message: 'Missing API key',
+      data: null,
+    });
+    return;
+  }
+
+  try {
+    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
+    if (!user) {
+      res.status(403).json({
+        success: false,
+        message: 'Invalid API key',
+        data: null,
+      });
+      return;
+    }
+
+    const record = await prisma.shortened_urls.findUnique({
+      where: { short_code: code },
+    });
+
+    if (!record) {
+      res.status(404).json({
+        success: false,
+        message: 'Short code not found',
+        data: null,
+      });
+      return;
+    }
+
+    if (record.user_id !== user.id) {
+      res.status(403).json({
+        success: false,
+        message: 'You do not have permission to edit this short code',
+        data: null,
+      });
+      return;
+    }
+
+    if (expiryDate) {
+      const parsedDate = parse(expiryDate, 'dd-MM-yyyy', new Date());
+      if (!isValid(parsedDate)) {
+        res.status(400).json({
+          success: false,
+          message: 'Invalid expiry date format. Use dd-MM-yyyy.',
+          data: null,
+        });
+        return;
+      }
+
+      await prisma.shortened_urls.update({
+        where: { short_code: code },
+        data: { expiry_date: parsedDate },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Expiry date updated to make short code inactive',
+        data: { shortCode: code, newExpiryDate: expiryDate },
+      });
+      return;
+    }
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
+  }
+});
+
 export function generateRandomShortCode() {
   const chars =
     '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';

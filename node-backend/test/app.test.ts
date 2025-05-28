@@ -307,5 +307,20 @@ describe('app', function () {
         `short code ${shortCode} deleted sucessfully`
       );
     });
+
+    it('Should update expiry date successfully to make a short code inactive', async () => {
+      const res = await chai
+        .request(app)
+        .patch(`/shorten/${shortCode}`)
+        .set('x-api-key', apiKey)
+        .send({ expiryDate: '30-03-2025' });
+
+      expect(res).to.have.status(200);
+      expect(res.body.success).to.equal(true);
+      expect(res.body.message).to.equal(
+        'Expiry date updated to make short code inactive'
+      );
+      expect(res.body.data.shortCode).to.equal(shortCode);
+    });
   });
 });
