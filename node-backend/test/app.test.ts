@@ -255,6 +255,50 @@ describe('app', function () {
       expect(response.body.message).to.equal('Url has expired');
     });
 
+    it('Should not redirect if password is not provided for a protected short URL', async function () {
+      const url = await chai
+        .request(app)
+        .post('/shorten')
+        .set('x-api-key', apiKey)
+        .send({ url: 'https://url-with-password.com', password: '1234' });
+
+      const expiredShortCode = url.body.data.shortCode;
+      createdShortCodes.push(expiredShortCode);
+
+      const response = await chai
+        .request(app)
+        .get(`/redirect`)
+        .set('x-api-key', apiKey)
+        .query({ code: expiredShortCode });
+
+      expect(response).to.have.status(401);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal(
+        'This short URL is protected. Password required.'
+      );
+    });
+
+    it('Should not redirect if password does not match', async function () {
+      const url = await chai
+        .request(app)
+        .post('/shorten')
+        .set('x-api-key', apiKey)
+        .send({ url: 'https://url-with-password.com', password: '1234' });
+
+      const expiredShortCode = url.body.data.shortCode;
+      createdShortCodes.push(expiredShortCode);
+
+      const response = await chai
+        .request(app)
+        .get(`/redirect`)
+        .set('x-api-key', apiKey)
+        .query({ code: expiredShortCode, password: 'random-password' });
+
+      expect(response).to.have.status(403);
+      expect(response.body.success).to.equal(false);
+      expect(response.body.message).to.equal('Invalid password.');
+    });
+
     it('Short code cannnot be deleted when no url is found for the given short code', async function () {
       const randomShortCode = 'randomShortCode';
 

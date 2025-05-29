@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
 import prisma from './prisma';
@@ -12,7 +13,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/shorten', async (req, res) => {
-  const { url, expiryDate, code } = req.body;
+  const { url, expiryDate, code, password } = req.body;
   if (!url) {
     res.status(400).json({
       success: false,
@@ -83,12 +84,18 @@ app.post('/shorten', async (req, res) => {
       shortCode = generateRandomShortCode();
     }
 
+    let hashedPassword: string | undefined = undefined;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
+    }
+
     const newUrl = await prisma.shortened_urls.create({
       data: {
         original_url: url,
         short_code: shortCode,
         user_id: user.id,
         expiry_date: expriryDateObj,
+        password: hashedPassword,
       },
     });
 
@@ -193,6 +200,8 @@ app.post('/shorten/batch', async (req, res) => {
 
 app.get('/redirect', async (req, res) => {
   const { code } = req.query;
+  const inputPassword = req.query.password as string | undefined;
+
   if (!code) {
     res.status(400).json({
       success: false,
@@ -223,6 +232,25 @@ app.get('/redirect', async (req, res) => {
         data: null,
       });
       return;
+    }
+
+    if (url.password) {
+      if (!inputPassword) {
+        res.status(401).json({
+          success: false,
+          message: 'This short URL is protected. Password required.',
+        });
+        return;
+      }
+
+      const valid = await bcrypt.compare(inputPassword, url.password);
+      if (!valid) {
+        res.status(403).json({
+          success: false,
+          message: 'Invalid password.',
+        });
+        return;
+      }
     }
 
     await prisma.shortened_urls.update({
@@ -339,7 +367,7 @@ app.delete('/all', async (req, res) => {
 
 app.patch('/shorten/:code', async (req, res) => {
   const { code } = req.params;
-  const { expiryDate } = req.body;
+  const { expiryDate, password } = req.body;
 
   const apiKey = req.headers['x-api-key'] as string;
   if (!apiKey) {
@@ -360,6 +388,11 @@ app.patch('/shorten/:code', async (req, res) => {
         data: null,
       });
       return;
+    }
+
+    let hashedPassword: string | undefined;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 10);
     }
 
     const record = await prisma.shortened_urls.findUnique({
@@ -397,7 +430,10 @@ app.patch('/shorten/:code', async (req, res) => {
 
       await prisma.shortened_urls.update({
         where: { short_code: code },
-        data: { expiry_date: parsedDate },
+        data: {
+          expiry_date: parsedDate,
+          password: hashedPassword,
+        },
       });
 
       res.status(200).json({

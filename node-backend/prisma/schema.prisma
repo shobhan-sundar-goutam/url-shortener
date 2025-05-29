@@ -20,6 +20,7 @@ model shortened_urls {
   original_url     String
   short_code       String    @unique
   user_id          Int
+  password         String?
   created_at       DateTime  @default(now())
   access_count     Int       @default(0)
   expiry_date      DateTime?
