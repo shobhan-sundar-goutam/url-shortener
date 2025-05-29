@@ -66,7 +66,15 @@ describe('app', function () {
     });
   });
 
-  describe('POST /shorten', function () {
+  describe('app', function () {
+    it('Should return 200 if server and database are healthy', async () => {
+      const res = await chai.request(app).get('/health');
+
+      expect(res).to.have.status(200);
+      expect(res.body.success).to.equal(true);
+      expect(res.body.message).to.equal('Everything is working smoothly.');
+    });
+
     it('Short code created successfully', async function () {
       const response = await chai
         .request(app)
@@ -165,7 +173,7 @@ describe('app', function () {
       });
     });
 
-    it('should handle invalid URLs gracefully in batch', async () => {
+    it('Should handle invalid URLs gracefully in batch', async () => {
       const urls = ['https://valid.com', '', null];
 
       const res = await chai
@@ -365,6 +373,14 @@ describe('app', function () {
         'Expiry date updated to make short code inactive'
       );
       expect(res.body.data.shortCode).to.equal(shortCode);
+    });
+
+    it('Should return all URLs for a valid API key', async () => {
+      const res = await chai.request(app).get('/urls').set('x-api-key', apiKey);
+
+      expect(res).to.have.status(200);
+      expect(res.body.success).to.equal(true);
+      expect(Array.isArray(res.body.data)).to.equal(true);
     });
   });
 });

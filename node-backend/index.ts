@@ -8,8 +8,21 @@ export const app = express();
 app.use(json());
 app.use(urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
-  res.send('url shortener working fine');
+app.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.status(200).json({
+      success: true,
+      message: 'Everything is working smoothly.',
+    });
+  } catch (error) {
+    console.error('Health check failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong.',
+    });
+  }
 });
 
 app.post('/shorten', async (req, res) => {
@@ -448,6 +461,59 @@ app.patch('/shorten/:code', async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: 'Something went wrong', data: null });
+  }
+});
+
+app.get('/urls', async (req, res) => {
+  const apiKey = req.headers['x-api-key'] as string;
+  if (!apiKey) {
+    res.status(401).json({
+      success: false,
+      message: 'Missing API key',
+      data: null,
+    });
+    return;
+  }
+
+  try {
+    const user = await prisma.users.findUnique({
+      where: { api_key: apiKey },
+    });
+
+    if (!user) {
+      res.status(403).json({
+        success: false,
+        message: 'Invalid API key',
+        data: null,
+      });
+      return;
+    }
+
+    const urls = await prisma.shortened_urls.findMany({
+      where: { user_id: user.id },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const result = urls.map((url) => ({
+      id: url.id,
+      original_url: url.original_url,
+      short_code: url.short_code,
+      expiry_date: url.expiry_date,
+      password_protected: !!url.password,
+      created_at: url.created_at,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong',
+      data: null,
+    });
   }
 });
 
