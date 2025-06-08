@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
 import { apiKeyValidator } from './middlewares/apiKeyValidator';
+import { blacklistValidator } from './middlewares/blacklistValidator';
 import { enterpriseValidator } from './middlewares/enterpriseValidator';
 import { requestLogger } from './middlewares/requestLogger';
 import prisma from './prisma';
@@ -18,6 +19,8 @@ export const app = express();
 
 app.use(json());
 app.use(urlencoded({ extended: true }));
+
+app.use(blacklistValidator);
 
 app.get('/health', requestLogger, async (req, res) => {
   try {
