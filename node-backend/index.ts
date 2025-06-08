@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
+import { requestLogger } from './middlewares/requestLogger';
 import prisma from './prisma';
 
 export const app = express();
@@ -8,7 +9,7 @@ export const app = express();
 app.use(json());
 app.use(urlencoded({ extended: true }));
 
-app.get('/health', async (req, res) => {
+app.get('/health', requestLogger, async (req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
 
@@ -25,7 +26,7 @@ app.get('/health', async (req, res) => {
   }
 });
 
-app.post('/shorten', async (req, res) => {
+app.post('/shorten', requestLogger, async (req, res) => {
   const { url, expiryDate, code, password } = req.body;
   if (!url) {
     res.status(400).json({
@@ -125,7 +126,7 @@ app.post('/shorten', async (req, res) => {
   }
 });
 
-app.post('/shorten/batch', async (req, res) => {
+app.post('/shorten/batch', requestLogger, async (req, res) => {
   const { urls } = req.body;
 
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -211,7 +212,7 @@ app.post('/shorten/batch', async (req, res) => {
   });
 });
 
-app.get('/redirect', async (req, res) => {
+app.get('/redirect', requestLogger, async (req, res) => {
   const { code } = req.query;
   const inputPassword = req.query.password as string | undefined;
 
@@ -283,7 +284,7 @@ app.get('/redirect', async (req, res) => {
   }
 });
 
-app.patch('/redirect', async (req, res) => {
+app.patch('/redirect', requestLogger, async (req, res) => {
   const { code } = req.query;
   if (!code) {
     res.status(404).json({
@@ -346,39 +347,7 @@ app.patch('/redirect', async (req, res) => {
   }
 });
 
-app.get('/all', async (req, res) => {
-  try {
-    const urls = await prisma.shortened_urls.findMany();
-    res.status(200).json({
-      success: true,
-      message: 'urls retrieved sucessfully',
-      data: urls,
-    });
-  } catch (error) {
-    console.log(error);
-    res
-      .status(500)
-      .json({ success: false, message: 'Something went wrong', data: null });
-  }
-});
-
-app.delete('/all', async (req, res) => {
-  try {
-    await prisma.shortened_urls.deleteMany();
-    res.status(200).json({
-      success: true,
-      message: `All data deleted sucessfully`,
-      data: null,
-    });
-  } catch (error) {
-    console.log(error);
-    res
-      .status(500)
-      .json({ success: false, message: 'Something went wrong', data: null });
-  }
-});
-
-app.patch('/shorten/:code', async (req, res) => {
+app.patch('/shorten/:code', requestLogger, async (req, res) => {
   const { code } = req.params;
   const { expiryDate, password } = req.body;
 
@@ -464,7 +433,7 @@ app.patch('/shorten/:code', async (req, res) => {
   }
 });
 
-app.get('/urls', async (req, res) => {
+app.get('/urls', requestLogger, async (req, res) => {
   const apiKey = req.headers['x-api-key'] as string;
   if (!apiKey) {
     res.status(401).json({
@@ -514,6 +483,38 @@ app.get('/urls', async (req, res) => {
       message: 'Something went wrong',
       data: null,
     });
+  }
+});
+
+app.get('/all', requestLogger, async (req, res) => {
+  try {
+    const urls = await prisma.shortened_urls.findMany();
+    res.status(200).json({
+      success: true,
+      message: 'urls retrieved sucessfully',
+      data: urls,
+    });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
+  }
+});
+
+app.delete('/all', requestLogger, async (req, res) => {
+  try {
+    await prisma.shortened_urls.deleteMany();
+    res.status(200).json({
+      success: true,
+      message: `All data deleted sucessfully`,
+      data: null,
+    });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ success: false, message: 'Something went wrong', data: null });
   }
 });
 

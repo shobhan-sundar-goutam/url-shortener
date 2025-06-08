@@ -38,3 +38,13 @@ model users {
   created_at     DateTime         @default(now())
   shortened_urls shortened_urls[]
 }
+
+model request_logs {Add commentMore actions
+  id         Int      @id @default(autoincrement())
+  timestamp  DateTime @default(now())
+  method     String
+  url        String
+  user_agent String?
+  ip         String
+  created_at DateTime @default(now())
+}
