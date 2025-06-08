@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
 import { apiKeyValidator } from './middlewares/apiKeyValidator';
+import { enterpriseValidator } from './middlewares/enterpriseValidator';
 import { requestLogger } from './middlewares/requestLogger';
 import prisma from './prisma';
 
@@ -115,71 +116,68 @@ app.post('/shorten', requestLogger, apiKeyValidator, async (req, res) => {
   }
 });
 
-app.post('/shorten/batch', requestLogger, apiKeyValidator, async (req, res) => {
-  const { urls } = req.body;
+app.post(
+  '/shorten/batch',
+  requestLogger,
+  apiKeyValidator,
+  enterpriseValidator,
+  async (req, res) => {
+    const { urls } = req.body;
 
-  if (!Array.isArray(urls) || urls.length === 0) {
-    res.status(400).json({
-      success: false,
-      message: 'Urls must be a non-empty array.',
-      data: null,
+    if (!Array.isArray(urls) || urls.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Urls must be a non-empty array.',
+        data: null,
+      });
+      return;
+    }
+
+    const results = await Promise.all(
+      urls.map(async (url) => {
+        if (!url) {
+          return {
+            url,
+            success: false,
+            message: 'URL is missing',
+          };
+        }
+
+        const shortCode = generateRandomShortCode();
+
+        try {
+          const newUrl = await prisma.shortened_urls.create({
+            data: {
+              original_url: url,
+              short_code: shortCode,
+              user_id: req.user.id,
+            },
+          });
+
+          return {
+            url,
+            shortCode: newUrl.short_code,
+            success: true,
+            message: 'Short Url created successfully',
+          };
+        } catch (err) {
+          console.error(err);
+          return {
+            url,
+            success: false,
+            message: 'Database error',
+          };
+        }
+      })
+    );
+
+    res.status(207).json({
+      success: true,
+      message: 'Batch processed',
+      data: results,
     });
-    return;
   }
-
-  if (req.user.tier !== 'enterprise') {
-    res.status(403).json({
-      success: false,
-      message: 'Bulk URL shortening is only available for enterprise users.',
-      data: null,
-    });
-    return;
-  }
-
-  const results = await Promise.all(
-    urls.map(async (url) => {
-      if (!url) {
-        return {
-          url,
-          success: false,
-          message: 'URL is missing',
-        };
-      }
-
-      const shortCode = generateRandomShortCode();
-
-      try {
-        const newUrl = await prisma.shortened_urls.create({
-          data: {
-            original_url: url,
-            short_code: shortCode,
-            user_id: req.user.id,
-          },
-        });
-
-        return {
-          url,
-          shortCode: newUrl.short_code,
-          success: true,
-          message: 'Short Url created successfully',
-        };
-      } catch (err) {
-        console.error(err);
-        return {
-          url,
-          success: false,
-          message: 'Database error',
-        };
-      }
-    })
-  );
-
-  res.status(207).json({
-    success: true,
-    message: 'Batch processed',
-    data: results,
-  });
-});
+);
 
 app.get('/redirect', requestLogger, async (req, res) => {
   const { code } = req.query;
