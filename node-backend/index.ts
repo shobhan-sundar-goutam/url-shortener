@@ -1,8 +1,17 @@
 import bcrypt from 'bcryptjs';
 import { isValid, parse } from 'date-fns';
 import express, { json, urlencoded } from 'express';
+import { apiKeyValidator } from './middlewares/apiKeyValidator';
 import { requestLogger } from './middlewares/requestLogger';
 import prisma from './prisma';
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: any;
+    }
+  }
+}
 
 export const app = express();
 
@@ -26,7 +35,7 @@ app.get('/health', requestLogger, async (req, res) => {
   }
 });
 
-app.post('/shorten', requestLogger, async (req, res) => {
+app.post('/shorten', requestLogger, apiKeyValidator, async (req, res) => {
   const { url, expiryDate, code, password } = req.body;
   if (!url) {
     res.status(400).json({
@@ -37,27 +46,7 @@ app.post('/shorten', requestLogger, async (req, res) => {
     return;
   }
 
-  const apiKey = req.headers['x-api-key'] as string;
-  if (!apiKey) {
-    res.status(401).json({
-      success: false,
-      message: 'Missing API key',
-      data: null,
-    });
-    return;
-  }
-
   try {
-    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
-    if (!user) {
-      res.status(403).json({
-        success: false,
-        message: 'Invalid API key',
-        data: null,
-      });
-      return;
-    }
-
     let expriryDateObj: Date | undefined = undefined;
 
     if (expiryDate) {
@@ -107,7 +96,7 @@ app.post('/shorten', requestLogger, async (req, res) => {
       data: {
         original_url: url,
         short_code: shortCode,
-        user_id: user.id,
+        user_id: req.user.id,
         expiry_date: expriryDateObj,
         password: hashedPassword,
       },
@@ -126,7 +115,7 @@ app.post('/shorten', requestLogger, async (req, res) => {
   }
 });
 
-app.post('/shorten/batch', requestLogger, async (req, res) => {
+app.post('/shorten/batch', requestLogger, apiKeyValidator, async (req, res) => {
   const { urls } = req.body;
 
   if (!Array.isArray(urls) || urls.length === 0) {
@@ -138,27 +127,7 @@ app.post('/shorten/batch', requestLogger, async (req, res) => {
     return;
   }
 
-  const apiKey = req.headers['x-api-key'] as string;
-  if (!apiKey) {
-    res.status(401).json({
-      success: false,
-      message: 'Missing API key',
-      data: null,
-    });
-    return;
-  }
-
-  const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
-  if (!user) {
-    res.status(403).json({
-      success: false,
-      message: 'Invalid API key',
-      data: null,
-    });
-    return;
-  }
-
-  if (user.tier !== 'enterprise') {
+  if (req.user.tier !== 'enterprise') {
     res.status(403).json({
       success: false,
       message: 'Bulk URL shortening is only available for enterprise users.',
@@ -184,7 +153,7 @@ app.post('/shorten/batch', requestLogger, async (req, res) => {
           data: {
             original_url: url,
             short_code: shortCode,
-            user_id: user.id,
+            user_id: req.user.id,
           },
         });
 
@@ -284,7 +253,7 @@ app.get('/redirect', requestLogger, async (req, res) => {
   }
 });
 
-app.patch('/redirect', requestLogger, async (req, res) => {
+app.patch('/redirect', requestLogger, apiKeyValidator, async (req, res) => {
   const { code } = req.query;
   if (!code) {
     res.status(404).json({
@@ -296,17 +265,6 @@ app.patch('/redirect', requestLogger, async (req, res) => {
   }
 
   try {
-    const apiKey = req.headers['x-api-key'] as string;
-    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
-    if (!user) {
-      res.status(403).json({
-        success: false,
-        message: 'Invalid API key',
-        data: null,
-      });
-      return;
-    }
-
     const url = await prisma.shortened_urls.findUnique({
       where: { short_code: String(code) },
     });
@@ -320,7 +278,7 @@ app.patch('/redirect', requestLogger, async (req, res) => {
       return;
     }
 
-    if (url.user_id !== user.id) {
+    if (url.user_id !== req.user.id) {
       res.status(403).json({
         success: false,
         message: `You do not own this short code`,
@@ -347,119 +305,81 @@ app.patch('/redirect', requestLogger, async (req, res) => {
   }
 });
 
-app.patch('/shorten/:code', requestLogger, async (req, res) => {
-  const { code } = req.params;
-  const { expiryDate, password } = req.body;
+app.patch(
+  '/shorten/:code',
+  requestLogger,
+  apiKeyValidator,
+  async (req, res) => {
+    const { code } = req.params;
+    const { expiryDate, password } = req.body;
 
-  const apiKey = req.headers['x-api-key'] as string;
-  if (!apiKey) {
-    res.status(401).json({
-      success: false,
-      message: 'Missing API key',
-      data: null,
-    });
-    return;
-  }
+    try {
+      let hashedPassword: string | undefined;
+      if (password) {
+        hashedPassword = await bcrypt.hash(password, 10);
+      }
 
-  try {
-    const user = await prisma.users.findUnique({ where: { api_key: apiKey } });
-    if (!user) {
-      res.status(403).json({
-        success: false,
-        message: 'Invalid API key',
-        data: null,
+      const record = await prisma.shortened_urls.findUnique({
+        where: { short_code: code },
       });
-      return;
-    }
 
-    let hashedPassword: string | undefined;
-    if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
-    }
-
-    const record = await prisma.shortened_urls.findUnique({
-      where: { short_code: code },
-    });
-
-    if (!record) {
-      res.status(404).json({
-        success: false,
-        message: 'Short code not found',
-        data: null,
-      });
-      return;
-    }
-
-    if (record.user_id !== user.id) {
-      res.status(403).json({
-        success: false,
-        message: 'You do not have permission to edit this short code',
-        data: null,
-      });
-      return;
-    }
-
-    if (expiryDate) {
-      const parsedDate = parse(expiryDate, 'dd-MM-yyyy', new Date());
-      if (!isValid(parsedDate)) {
-        res.status(400).json({
+      if (!record) {
+        res.status(404).json({
           success: false,
-          message: 'Invalid expiry date format. Use dd-MM-yyyy.',
+          message: 'Short code not found',
           data: null,
         });
         return;
       }
 
-      await prisma.shortened_urls.update({
-        where: { short_code: code },
-        data: {
-          expiry_date: parsedDate,
-          password: hashedPassword,
-        },
-      });
+      if (record.user_id !== req.user.id) {
+        res.status(403).json({
+          success: false,
+          message: 'You do not have permission to edit this short code',
+          data: null,
+        });
+        return;
+      }
 
-      res.status(200).json({
-        success: true,
-        message: 'Expiry date updated to make short code inactive',
-        data: { shortCode: code, newExpiryDate: expiryDate },
-      });
-      return;
+      if (expiryDate) {
+        const parsedDate = parse(expiryDate, 'dd-MM-yyyy', new Date());
+        if (!isValid(parsedDate)) {
+          res.status(400).json({
+            success: false,
+            message: 'Invalid expiry date format. Use dd-MM-yyyy.',
+            data: null,
+          });
+          return;
+        }
+
+        await prisma.shortened_urls.update({
+          where: { short_code: code },
+          data: {
+            expiry_date: parsedDate,
+            password: hashedPassword,
+          },
+        });
+
+        res.status(200).json({
+          success: true,
+          message: 'Expiry date updated to make short code inactive',
+          data: { shortCode: code, newExpiryDate: expiryDate },
+        });
+        return;
+      }
+    } catch (error) {
+      console.log(error);
+      res
+        .status(500)
+        .json({ success: false, message: 'Something went wrong', data: null });
     }
-  } catch (error) {
-    console.log(error);
-    res
-      .status(500)
-      .json({ success: false, message: 'Something went wrong', data: null });
   }
-});
+);
 
-app.get('/urls', requestLogger, async (req, res) => {
-  const apiKey = req.headers['x-api-key'] as string;
-  if (!apiKey) {
-    res.status(401).json({
-      success: false,
-      message: 'Missing API key',
-      data: null,
-    });
-    return;
-  }
-
+app.get('/urls', requestLogger, apiKeyValidator, async (req, res) => {
   try {
-    const user = await prisma.users.findUnique({
-      where: { api_key: apiKey },
-    });
-
-    if (!user) {
-      res.status(403).json({
-        success: false,
-        message: 'Invalid API key',
-        data: null,
-      });
-      return;
-    }
-
     const urls = await prisma.shortened_urls.findMany({
-      where: { user_id: user.id },
+      where: { user_id: req.user.id },
       orderBy: { created_at: 'desc' },
     });
 

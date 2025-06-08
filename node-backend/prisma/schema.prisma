@@ -39,7 +39,7 @@ model users {
   shortened_urls shortened_urls[]
 }
 
-model request_logs {Add commentMore actions
+model request_logs {
   id         Int      @id @default(autoincrement())
   timestamp  DateTime @default(now())
   method     String
