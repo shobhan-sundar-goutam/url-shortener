@@ -5,6 +5,7 @@ import { apiKeyValidator } from './middlewares/apiKeyValidator';
 import { blacklistValidator } from './middlewares/blacklistValidator';
 import { enterpriseValidator } from './middlewares/enterpriseValidator';
 import { requestLogger } from './middlewares/requestLogger';
+import { responseTimeLogger } from './middlewares/responseTimeLogger';
 import prisma from './prisma';
 
 declare global {
@@ -16,6 +17,8 @@ declare global {
 }
 
 export const app = express();
+
+app.use(responseTimeLogger);
 
 app.use(json());
 app.use(urlencoded({ extended: true }));
